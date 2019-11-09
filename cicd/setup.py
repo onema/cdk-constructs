@@ -4,11 +4,10 @@ from setuptools import setup, find_packages
 with open("README.md") as fp:
     long_description = fp.read()
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 
 setup(
     name="onema-cdk.cicd-pipelines",
-
     version=__version__,
 
     description="Constructs to deploy CICD pipelines using CodePipeline and CodeBuild",
@@ -17,6 +16,12 @@ setup(
 
     author="Juan Manuel Torres",
     author_email="software@onema.io",
+    url="https://github.com/onema/cdk-constructs",   # project home page, if any
+    project_urls={
+        "Bug Tracker": "https://github.com/onema/cdk-constructs/issues",
+        "Documentation": "https://github.com/onema/cdk-constructs",
+        "Source Code": "https://github.com/onema/cdk-constructs",
+    },
 
     packages=find_packages(exclude=["ez_setup", "test", "test.*"]),
 
