@@ -15,7 +15,7 @@ from aws_cdk.core import Construct, CfnOutput, RemovalPolicy
 
 class StaticWebsite(Construct):
 
-    def __init__(self, scope: Construct, id: str, *, hosted_zone: HostedZone, site_domain: str, sources: str, website_index: str = "index.html", website_error: str = "error.html"):
+    def __init__(self, scope: Construct, id: str, *, sources: str, hosted_zone: HostedZone = None, site_domain: str = None, website_index: str = "index.html", website_error: str = "error.html"):
         """
         This constructs creates:
             - S3 bucket
@@ -34,42 +34,51 @@ class StaticWebsite(Construct):
         super().__init__(scope, id)
 
         # Construct code goes here
-        CfnOutput(self, "Site", value=f"https://{site_domain}")
+        if site_domain:
+            CfnOutput(self, "Site", value=f"https://{site_domain}")
 
         # Content bucket
-        site_bucket = aws_s3.Bucket(self, "SiteBucket",
+        self.site_bucket = aws_s3.Bucket(self, "SiteBucket",
                                     bucket_name=site_domain,
                                     website_index_document=website_index,
                                     website_error_document=website_error,
                                     public_read_access=True,
                                     removal_policy=RemovalPolicy.DESTROY)
-        CfnOutput(self, "BucketArn", value=site_bucket.bucket_arn)
+        CfnOutput(self, "BucketArn", value=self.site_bucket.bucket_arn)
+        CfnOutput(self, "BucketWebsiteUrl", value=self.site_bucket.bucket_website_url)
+        CfnOutput(self, "BucketWebsiteDomainName", value=self.site_bucket.bucket_website_domain_name)
 
         # Certificate
-        cert = DnsValidatedCertificate(self, f"{id}-bucket", domain_name=site_domain, hosted_zone=hosted_zone)
-        CfnOutput(self, 'CertificateArn', value=cert.certificate_arn)
+        alias_config = None
+        if hosted_zone:
+            self.cert = DnsValidatedCertificate(self, f"{id}-bucket", domain_name=site_domain, hosted_zone=hosted_zone)
+            CfnOutput(self, 'CertificateArn', value=self.cert.certificate_arn)
+            alias_config = AliasConfiguration(
+                acm_cert_ref=self.cert.certificate_arn,
+                names=[site_domain],
+                ssl_method=aws_cloudfront.SSLMethod.SNI,
+                security_policy=aws_cloudfront.SecurityPolicyProtocol.TLS_V1_1_2016,
+            )
 
-        distr = CloudFrontWebDistribution(self, "SiteDistribution",
-                                          alias_configuration=AliasConfiguration(
-                                              acm_cert_ref=cert.certificate_arn,
-                                              names=[site_domain],
-                                              ssl_method=aws_cloudfront.SSLMethod.SNI,
-                                              security_policy=aws_cloudfront.SecurityPolicyProtocol.TLS_V1_1_2016,
-                                          ),
-                                          origin_configs=[SourceConfiguration(
-                                              s3_origin_source=aws_cloudfront.S3OriginConfig(s3_bucket_source=site_bucket),
-                                              behaviors=[aws_cloudfront.Behavior(is_default_behavior=True)]
-                                          )])
-        CfnOutput(self, "DistributionId", value=distr.distribution_id)
+        self.distr = CloudFrontWebDistribution(self, "SiteDistribution",
+                                               alias_configuration=alias_config,
+                                               origin_configs=[SourceConfiguration(
+                                                   s3_origin_source=aws_cloudfront.S3OriginConfig(
+                                                       s3_bucket_source=self.site_bucket
+                                                   ),
+                                                   behaviors=[aws_cloudfront.Behavior(is_default_behavior=True)]
+                                               )])
+
+        CfnOutput(self, "DistributionId", value=self.distr.distribution_id)
 
         # Route 53 alias record for the cloudfront distribution
         aws_route53.ARecord(self, "SiteAliasRecord",
                             zone=hosted_zone,
-                            target=aws_route53.AddressRecordTarget.from_alias(aws_route53_targets.CloudFrontTarget(distr)),
+                            target=aws_route53.AddressRecordTarget.from_alias(aws_route53_targets.CloudFrontTarget(self.distr)),
                             record_name=site_domain)
 
         aws_s3_deployment.BucketDeployment(self, "DeployWithInvalidation",
                                            sources=[aws_s3_deployment.Source.asset(sources)],
-                                           destination_bucket=site_bucket,
-                                           distribution=distr,
+                                           destination_bucket=self.site_bucket,
+                                           distribution=self.distr,
                                            distribution_paths=["/*"])

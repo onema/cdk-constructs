@@ -36,3 +36,19 @@ class WebSiteStack(Stack):
                               sources="../public",
                               website_error="404.html")
 ```
+
+### Website without custom domain
+```python
+from aws_cdk.core import Stack, Construct
+from static_website import StaticWebsite
+
+class WebSiteStack(Stack):
+    def __init__(self, scope: Construct, id: str, **kwargs):
+
+        super().__init__(scope, id, **kwargs)
+
+        # The code that defines your stack goes here
+        StaticWebsite(self, "serverlesslink-website",
+                              sources="../public",
+                              website_error="404.html")
+```

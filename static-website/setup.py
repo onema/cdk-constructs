@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 with open("README.md") as fp:
     long_description = fp.read()
 
-__version__ = "0.0.10"
+__version__ = "0.1.0"
 
 setup(
     name="onema-cdk.static-website",
