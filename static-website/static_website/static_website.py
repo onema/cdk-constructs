@@ -72,10 +72,11 @@ class StaticWebsite(Construct):
         CfnOutput(self, "DistributionId", value=self.distr.distribution_id)
 
         # Route 53 alias record for the cloudfront distribution
-        aws_route53.ARecord(self, "SiteAliasRecord",
-                            zone=hosted_zone,
-                            target=aws_route53.AddressRecordTarget.from_alias(aws_route53_targets.CloudFrontTarget(self.distr)),
-                            record_name=site_domain)
+        if hosted_zone:
+            aws_route53.ARecord(self, "SiteAliasRecord",
+                                zone=hosted_zone,
+                                target=aws_route53.AddressRecordTarget.from_alias(aws_route53_targets.CloudFrontTarget(self.distr)),
+                                record_name=site_domain)
 
         aws_s3_deployment.BucketDeployment(self, "DeployWithInvalidation",
                                            sources=[aws_s3_deployment.Source.asset(sources)],
